@@ -85,6 +85,11 @@ function EventDetailContent() {
 
     if (!event) return;
 
+    if (profile?.role !== "attendee") {
+      alert("Only attendees are allowed to register for events.");
+      return;
+    }
+
     if (ticketCount > event.availableTickets) {
       alert("Not enough tickets available.");
       return;
@@ -246,6 +251,10 @@ function EventDetailContent() {
                     <Link href="/login" className={cn(buttonVariants(), "w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-center")}>
                       Sign In to Book
                     </Link>
+                  ) : profile?.role !== "attendee" ? (
+                    <div className="text-center p-3 bg-muted border border-border rounded-lg text-xs text-muted-foreground font-medium">
+                      Only attendees can book tickets. You are signed in as an {profile?.role || "organizer"}.
+                    </div>
                   ) : (
                     <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setDialogOpen(true)}>
                       Book Tickets

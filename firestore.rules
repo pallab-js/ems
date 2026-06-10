@@ -57,8 +57,10 @@ service cloud.firestore {
         isAdmin()
       );
 
-      // Authenticated users can register for events
-      allow create: if isSignedIn() && request.resource.data.attendeeId == request.auth.uid;
+      // Authenticated attendees can register for events (organizers/admins cannot book tickets)
+      allow create: if isSignedIn() && 
+                    request.resource.data.attendeeId == request.auth.uid &&
+                    getUserData().role == 'attendee';
 
       // Users can cancel their own bookings, Organizers can manage bookings of their events, Admins can do anything
       allow update: if isSignedIn() && (
