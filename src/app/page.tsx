@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Calendar, Compass, Shield, Sparkles, MapPin, Tag } from "lucide-react";
-import { Event, MOCK_EVENTS } from "@/lib/mock-data";
+import { Event } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { collection, query, where, limit, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -47,11 +47,11 @@ export default function Home() {
         if (fetched.length > 0) {
           setFeaturedEvents(fetched);
         } else {
-          setFeaturedEvents(MOCK_EVENTS.slice(0, 3));
+          setFeaturedEvents([]);
         }
       } catch (err) {
-        console.warn("Error fetching featured events from Firestore (using mock fallback):", err);
-        setFeaturedEvents(MOCK_EVENTS.slice(0, 3));
+        console.warn("Error fetching featured events from Firestore:", err);
+        setFeaturedEvents([]);
       } finally {
         setLoading(false);
       }
@@ -145,6 +145,17 @@ export default function Home() {
           {loading ? (
             <div className="flex justify-center py-12 w-full col-span-1 md:col-span-3">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            </div>
+          ) : featuredEvents.length === 0 ? (
+            <div className="col-span-1 md:col-span-3 text-center py-12 px-6 bg-card border border-border/60 rounded-2xl shadow-sm max-w-lg mx-auto w-full">
+              <Calendar className="h-10 w-10 text-muted-foreground/60 mx-auto mb-3" />
+              <h4 className="font-bold text-lg mb-1">No Featured Events Yet</h4>
+              <p className="text-muted-foreground text-xs mb-4">
+                Be the first to list an event, wedding, or cultural gathering in Northeast India!
+              </p>
+              <Link href="/register" className={cn(buttonVariants({ size: "sm" }), "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold")}>
+                Get Started
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Event, MOCK_EVENTS, ALL_LOCATIONS, CATEGORIES } from "@/lib/mock-data";
+import { Event, ALL_LOCATIONS, CATEGORIES } from "@/lib/constants";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MapPin, Calendar as CalendarIcon, Tag, Search, RefreshCw } from "lucide-react";
+import { MapPin, Calendar as CalendarIcon, Tag, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function EventsPage() {
@@ -18,11 +18,9 @@ export default function EventsPage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
-  const [isUsingMock, setIsUsingMock] = useState(false);
 
   const fetchEvents = async () => {
     setLoading(true);
-    setIsUsingMock(false);
     try {
       const q = query(collection(db, "events"), where("status", "==", "published"));
       const querySnapshot = await getDocs(q);
@@ -48,17 +46,10 @@ export default function EventsPage() {
         });
       });
 
-      if (fetched.length > 0) {
-        setEvents(fetched);
-      } else {
-        // Fallback to mock data if Firestore is empty
-        setEvents(MOCK_EVENTS);
-        setIsUsingMock(true);
-      }
+      setEvents(fetched);
     } catch (error) {
-      console.warn("Firestore error fetching events (using mock fallback):", error);
-      setEvents(MOCK_EVENTS);
-      setIsUsingMock(true);
+      console.warn("Firestore error fetching events:", error);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -147,15 +138,6 @@ export default function EventsPage() {
         </Button>
       </div>
 
-      {/* Mock data notification */}
-      {isUsingMock && (
-        <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs p-3 rounded-lg border border-amber-500/20 flex items-center justify-between">
-          <span>⚠️ Showing preview regional events. Configure your Firebase project in `.env.local` to view real-time database listings.</span>
-          <Button variant="ghost" size="sm" onClick={fetchEvents} className="h-6 gap-1 hover:bg-amber-500/20 text-xs">
-            <RefreshCw className="h-3 w-3" /> Retry
-          </Button>
-        </div>
-      )}
 
       {/* Loading state */}
       {loading ? (

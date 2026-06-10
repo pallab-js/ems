@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { collection, addDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { ALL_LOCATIONS, CATEGORIES } from "@/lib/mock-data";
+import { ALL_LOCATIONS, CATEGORIES } from "@/lib/constants";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

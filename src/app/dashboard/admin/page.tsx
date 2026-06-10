@@ -5,7 +5,7 @@ import { useAuth, UserProfile, UserRole } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { collection, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Event, MOCK_EVENTS } from "@/lib/mock-data";
+import { Event } from "@/lib/constants";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,6 @@ export default function AdminDashboard() {
   const [registrationsCount, setRegistrationsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -76,19 +75,14 @@ export default function AdminDashboard() {
         });
       });
 
-      if (fetchedEvents.length > 0) {
-        setEvents(fetchedEvents);
-      } else {
-        setEvents(MOCK_EVENTS);
-      }
+      setEvents(fetchedEvents);
 
       // 3. Fetch registrations count
       const querySnapshotRegs = await getDocs(collection(db, "registrations"));
       setRegistrationsCount(querySnapshotRegs.size);
     } catch (error) {
       console.error("Error fetching admin data:", error);
-      // Fallback
-      setEvents(MOCK_EVENTS);
+      setEvents([]);
       if (profile) setUsers([profile]);
     } finally {
       setLoading(false);
@@ -102,43 +96,6 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile]);
 
-  const handleSeedEvents = async () => {
-    setSeeding(true);
-    try {
-      const { doc, writeBatch } = await import("firebase/firestore");
-      const batch = writeBatch(db);
-      
-      for (const event of MOCK_EVENTS) {
-        const docRef = doc(db, "events", event.id);
-        const data = {
-          title: event.title,
-          description: event.description,
-          date: new Date(event.date),
-          location: event.location,
-          district: event.district,
-          category: event.category,
-          image: event.image,
-          organizerId: event.organizerId === "organizer-1" && user ? user.uid : event.organizerId,
-          organizerName: event.organizerName,
-          capacity: event.capacity,
-          availableTickets: event.availableTickets,
-          price: event.price,
-          status: event.status,
-          createdAt: new Date(event.createdAt)
-        };
-        batch.set(docRef, data);
-      }
-      
-      await batch.commit();
-      alert("Successfully seeded all demo events to Firestore!");
-      await fetchAdminData();
-    } catch (err: any) {
-      console.error("Error seeding events:", err);
-      alert("Seeding failed: " + err.message);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const handleRoleChange = async (targetUserId: string, newRole: UserRole) => {
     setUpdatingRole(targetUserId);
@@ -157,11 +114,6 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    if (eventId.startsWith("mock-")) {
-      setEvents((prev) => prev.filter((e) => e.id !== eventId));
-      return;
-    }
-
     if (!confirm("Are you sure you want to delete this event?")) return;
 
     try {
@@ -183,20 +135,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6 max-w-5xl">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Admin Console</h1>
-          <p className="text-muted-foreground text-sm">
-            Welcome, {profile?.displayName}! System control panel to manage users, event listings, and roles.
-          </p>
-        </div>
-        <Button 
-          onClick={handleSeedEvents} 
-          disabled={seeding}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-        >
-          {seeding ? "Seeding..." : "Seed Demo Events"}
-        </Button>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Admin Console</h1>
+        <p className="text-muted-foreground text-sm">
+          Welcome, {profile?.displayName}! System control panel to manage users, event listings, and roles.
+        </p>
       </div>
 
       {/* Admin stats */}

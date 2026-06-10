@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { doc, getDoc, collection, addDoc, updateDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Event, MOCK_EVENTS } from "@/lib/mock-data";
+import { Event } from "@/lib/constants";
 import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,17 +39,6 @@ function EventDetailContent() {
       setLoading(true);
       setError(null);
 
-      // Check if it's a mock event
-      if (id.startsWith("mock-")) {
-        const mock = MOCK_EVENTS.find((e) => e.id === id);
-        if (mock) {
-          setEvent(mock);
-        } else {
-          setError("Event not found.");
-        }
-        setLoading(false);
-        return;
-      }
 
       try {
         const docRef = doc(db, "events", id);
@@ -117,16 +106,12 @@ function EventDetailContent() {
         registeredAt: new Date(),
       };
 
-      if (event.id.startsWith("mock-")) {
-        setEvent((prev) => prev ? { ...prev, availableTickets: Math.max(0, prev.availableTickets - ticketCount) } : null);
-      } else {
-        await addDoc(collection(db, "registrations"), regData);
-        const eventRef = doc(db, "events", event.id);
-        await updateDoc(eventRef, {
-          availableTickets: increment(-ticketCount),
-        });
-        setEvent((prev) => prev ? { ...prev, availableTickets: Math.max(0, prev.availableTickets - ticketCount) } : null);
-      }
+      await addDoc(collection(db, "registrations"), regData);
+      const eventRef = doc(db, "events", event.id);
+      await updateDoc(eventRef, {
+        availableTickets: increment(-ticketCount),
+      });
+      setEvent((prev) => prev ? { ...prev, availableTickets: Math.max(0, prev.availableTickets - ticketCount) } : null);
 
       setBookingSuccess(true);
       setDialogOpen(false);
