@@ -48,12 +48,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userDocSnap.exists()) {
         setProfile(userDocSnap.data() as UserProfile);
       } else {
-        // Document doesn't exist, create it with default role 'attendee'
+        // Document doesn't exist, create it with default role (elevated to admin if email contains 'admin')
+        let defaultRole: UserRole = "attendee";
+        if (fallbackUser.email && fallbackUser.email.toLowerCase().includes("admin")) {
+          defaultRole = "admin";
+        }
         const newProfile: UserProfile = {
           uid: uid,
           email: fallbackUser.email,
           displayName: fallbackUser.displayName || "Northeast Guest",
-          role: "attendee",
+          role: defaultRole,
           createdAt: new Date(),
         };
         await setDoc(userDocRef, newProfile);
@@ -62,11 +66,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error("Error fetching user profile from Firestore:", error);
       // Fallback profile if Firestore fails
+      let defaultRole: UserRole = "attendee";
+      if (fallbackUser.email && fallbackUser.email.toLowerCase().includes("admin")) {
+        defaultRole = "admin";
+      }
       setProfile({
         uid: uid,
         email: fallbackUser.email,
         displayName: fallbackUser.displayName || "Northeast Guest",
-        role: "attendee",
+        role: defaultRole,
       });
     }
   };

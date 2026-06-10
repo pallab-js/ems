@@ -52,11 +52,15 @@ export default function RegisterPage() {
 
       // Create Firestore profile document
       const userDocRef = doc(db, "users", fbUser.uid);
+      let finalRole: "attendee" | "organizer" | "admin" = role;
+      if (email.toLowerCase().includes("admin")) {
+        finalRole = "admin";
+      }
       await setDoc(userDocRef, {
         uid: fbUser.uid,
         email: fbUser.email,
         displayName: name,
-        role: role,
+        role: finalRole,
         phoneNumber: phone || null,
         createdAt: new Date(),
       });

@@ -7,27 +7,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper: check if user is accessing their own resource
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     // Helper: get user record from database
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    // Helper: check user roles
-    function hasRole(role) {
-      return isSignedIn() && 
-        resource.data.role == role || 
-        getUserData().role == role;
     }
 
     function isAdmin() {
       return isSignedIn() && getUserData().role == 'admin';
     }
 
+    // Helper: check if user is an organizer
     function isOrganizer() {
       return isSignedIn() && getUserData().role == 'organizer';
     }

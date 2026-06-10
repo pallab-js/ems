@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { collection, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ALL_LOCATIONS, CATEGORIES } from "@/lib/mock-data";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -27,9 +28,29 @@ export default function CreateEventPage() {
   const [capacity, setCapacity] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+    try {
+      const storageRef = ref(storage, `banners/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      setImage(url);
+    } catch (err: any) {
+      console.error("Storage upload error:", err);
+      setError("Failed to upload image: " + (err.message || err));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading) {
@@ -242,14 +263,31 @@ export default function CreateEventPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="image">Banner Image URL (Optional)</Label>
-              <Input
-                id="image"
-                placeholder="Leave blank for high-quality category default"
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                disabled={submitting}
-              />
+              <Label htmlFor="imageFile">Event Banner Image</Label>
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <Input
+                  id="imageFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={submitting || uploading}
+                  className="cursor-pointer"
+                />
+                {image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={image}
+                    alt="Cover preview"
+                    className="h-10 w-16 object-cover rounded border border-border shadow-sm shrink-0"
+                  />
+                )}
+              </div>
+              {uploading && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 animate-pulse">Uploading cover image to Firebase Storage...</p>
+              )}
+              {!image && (
+                <p className="text-[10px] text-muted-foreground">Upload a banner or leave empty to use a high-quality category default.</p>
+              )}
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-3 border-t border-border/50 pt-4">

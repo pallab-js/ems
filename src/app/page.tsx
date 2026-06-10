@@ -1,14 +1,64 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Calendar, Compass, Shield, Sparkles, MapPin, Tag } from "lucide-react";
-import { MOCK_EVENTS } from "@/lib/mock-data";
+import { Event, MOCK_EVENTS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { collection, query, where, limit, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function Home() {
-  // Take 3 sample events to showcase on landing page
-  const featuredEvents = MOCK_EVENTS.slice(0, 3);
+  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedEvents = async () => {
+      try {
+        const q = query(
+          collection(db, "events"),
+          where("status", "==", "published"),
+          limit(3)
+        );
+        const querySnapshot = await getDocs(q);
+        const fetched: Event[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetched.push({
+            id: doc.id,
+            title: data.title,
+            description: data.description,
+            date: data.date?.toDate ? data.date.toDate().toISOString() : data.date,
+            location: data.location,
+            district: data.district,
+            category: data.category,
+            image: data.image || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=800&auto=format&fit=crop",
+            organizerId: data.organizerId,
+            organizerName: data.organizerName || "Organizer",
+            capacity: Number(data.capacity || 100),
+            availableTickets: Number(data.availableTickets || data.capacity || 100),
+            price: Number(data.price || 0),
+            status: data.status,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          });
+        });
+
+        if (fetched.length > 0) {
+          setFeaturedEvents(fetched);
+        } else {
+          setFeaturedEvents(MOCK_EVENTS.slice(0, 3));
+        }
+      } catch (err) {
+        console.warn("Error fetching featured events from Firestore (using mock fallback):", err);
+        setFeaturedEvents(MOCK_EVENTS.slice(0, 3));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedEvents();
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -92,55 +142,61 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {featuredEvents.map((event) => {
-              const dateObj = new Date(event.date);
-              const formattedDate = dateObj.toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              });
-              return (
-                <div key={event.id} className="flex flex-col border border-border bg-card rounded-2xl overflow-hidden hover:shadow-md transition-shadow group">
-                  <div className="relative h-44 w-full bg-muted overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={event.image} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold">
-                      {event.price === 0 ? "FREE" : `₹${event.price}`}
-                    </div>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">
-                        <Tag className="h-3 w-3" />
-                        {event.category}
+          {loading ? (
+            <div className="flex justify-center py-12 w-full col-span-1 md:col-span-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {featuredEvents.map((event) => {
+                const dateObj = new Date(event.date);
+                const formattedDate = dateObj.toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                });
+                return (
+                  <div key={event.id} className="flex flex-col border border-border bg-card rounded-2xl overflow-hidden hover:shadow-md transition-shadow group">
+                    <div className="relative h-44 w-full bg-muted overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={event.image} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        {event.price === 0 ? "FREE" : `₹${event.price}`}
                       </div>
-                      <h4 className="font-bold text-base line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                        {event.title}
-                      </h4>
-                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                        {event.description}
-                      </p>
                     </div>
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">
+                          <Tag className="h-3 w-3" />
+                          {event.category}
+                        </div>
+                        <h4 className="font-bold text-base line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          {event.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                          {event.description}
+                        </p>
+                      </div>
 
-                    <div className="flex flex-col gap-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
-                        {formattedDate}
+                      <div className="flex flex-col gap-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                          {formattedDate}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                        <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "w-full mt-2 font-bold hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-600/30")}>
+                          Reserve a Spot
+                        </Link>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
-                        <span className="truncate">{event.location}</span>
-                      </div>
-                      <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "w-full mt-2 font-bold hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-600/30")}>
-                        Reserve a Spot
-                      </Link>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
     </div>
