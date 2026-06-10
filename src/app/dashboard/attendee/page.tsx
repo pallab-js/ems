@@ -206,7 +206,12 @@ export default function AttendeeDashboard() {
 
                     <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 border-t sm:border-t-0 pt-2 sm:pt-0 border-border">
                       <div className="text-right space-y-0.5">
-                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 capitalize">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold capitalize",
+                          reg.status === "cancelled"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        )}>
                           {reg.status}
                         </span>
                         <p className="text-xs text-muted-foreground">{reg.ticketCount} {reg.ticketCount === 1 ? "seat" : "seats"}</p>
