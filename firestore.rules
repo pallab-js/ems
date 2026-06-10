@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is signed in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper: check if user is accessing their own resource
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Helper: get user record from database
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Helper: check user roles
+    function hasRole(role) {
+      return isSignedIn() && 
+        resource.data.role == role || 
+        getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    function isOrganizer() {
+      return isSignedIn() && getUserData().role == 'organizer';
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // On creation, a user sets their own profile. Keep them from forging roles if possible, 
+      // but let them initialize as attendee.
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      // Allow user to edit their profile (except their role unless they are admin)
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId && 
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      ) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // --- Events Collection ---
+    match /events/{eventId} {
+      // Anyone can view published events. Admins/Organizers can view drafts.
+      allow read: if resource.data.status == 'published' || 
+                  (isSignedIn() && (resource.data.organizerId == request.auth.uid || isAdmin()));
+      
+      // Organizers and Admins can create events
+      allow create: if isSignedIn() && (isOrganizer() || isAdmin()) && request.resource.data.organizerId == request.auth.uid;
+      
+      // Only the event organizer or Admin can update or delete
+      allow update, delete: if isSignedIn() && (resource.data.organizerId == request.auth.uid || isAdmin());
+    }
+
+    // --- Registrations Collection ---
+    match /registrations/{registrationId} {
+      // Users can read their own bookings. Organizers can read bookings for their events. Admins can read all.
+      allow read: if isSignedIn() && (
+        resource.data.attendeeId == request.auth.uid || 
+        get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.organizerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Authenticated users can register for events
+      allow create: if isSignedIn() && request.resource.data.attendeeId == request.auth.uid;
+
+      // Users can cancel their own bookings, Organizers can manage bookings of their events, Admins can do anything
+      allow update: if isSignedIn() && (
+        resource.data.attendeeId == request.auth.uid ||
+        get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.organizerId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      allow delete: if isAdmin();
+    }
+  }
+}
