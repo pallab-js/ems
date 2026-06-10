@@ -44,8 +44,18 @@ service cloud.firestore {
       // Organizers and Admins can create events
       allow create: if isSignedIn() && (isOrganizer() || isAdmin()) && request.resource.data.organizerId == request.auth.uid;
       
-      // Only the event organizer or Admin can update or delete
-      allow update, delete: if isSignedIn() && (resource.data.organizerId == request.auth.uid || isAdmin());
+      // Only the event organizer or Admin can update all fields or delete.
+      // Attendees can also update but ONLY the 'availableTickets' field to reserve seats.
+      allow update: if isSignedIn() && (
+        resource.data.organizerId == request.auth.uid || 
+        isAdmin() ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableTickets']) &&
+          request.resource.data.availableTickets >= 0 &&
+          request.resource.data.availableTickets < resource.data.availableTickets
+        )
+      );
+      allow delete: if isSignedIn() && (resource.data.organizerId == request.auth.uid || isAdmin());
     }
 
     // --- Registrations Collection ---
