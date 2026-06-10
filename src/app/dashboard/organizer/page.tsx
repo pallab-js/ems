@@ -235,7 +235,7 @@ export default function OrganizerDashboard() {
                               {event.capacity - event.availableTickets} / {event.capacity}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Link href={`/events/${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}>
+                              <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}>
                                 View Page
                               </Link>
                             </TableCell>

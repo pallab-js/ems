@@ -273,7 +273,7 @@ export default function AdminDashboard() {
                     {events.map((event) => (
                       <TableRow key={event.id}>
                         <TableCell className="font-bold text-xs">
-                          <Link href={`/events/${event.id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400">
+                          <Link href={`/events/detail?id=${event.id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400">
                             {event.title}
                           </Link>
                         </TableCell>

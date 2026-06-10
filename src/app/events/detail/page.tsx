@@ -1,22 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { doc, getDoc, collection, addDoc, updateDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Event, MOCK_EVENTS } from "@/lib/mock-data";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarIcon, MapPin, Tag, Users, ShieldAlert, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function EventDetailContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") || "";
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -30,6 +31,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => {
     const fetchEvent = async () => {
+      if (!id) {
+        setError("Invalid Event ID.");
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
 
@@ -97,7 +103,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
     setBooking(true);
     try {
-      // Create a registration record
       const regData = {
         eventId: event.id,
         eventTitle: event.title,
@@ -113,12 +118,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       };
 
       if (event.id.startsWith("mock-")) {
-        // Mock success local state update
         setEvent((prev) => prev ? { ...prev, availableTickets: Math.max(0, prev.availableTickets - ticketCount) } : null);
       } else {
-        // Write to firestore
         await addDoc(collection(db, "registrations"), regData);
-        // Update remaining ticket capacities
         const eventRef = doc(db, "events", event.id);
         await updateDoc(eventRef, {
           availableTickets: increment(-ticketCount),
@@ -174,7 +176,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </Link>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main Details */}
         <div className="md:col-span-2 space-y-4">
           <div className="relative h-64 md:h-96 w-full rounded-2xl overflow-hidden bg-muted">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -224,7 +225,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        {/* Ticket Booking Card */}
         <div>
           <Card className="sticky top-24 border-emerald-500/10 shadow-md">
             <CardHeader className="bg-muted/30 pb-4">
@@ -273,7 +273,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
-      {/* Ticket Selection Modal */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -314,5 +313,17 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function EventDetailPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-grow flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+      </div>
+    }>
+      <EventDetailContent />
+    </Suspense>
   );
 }

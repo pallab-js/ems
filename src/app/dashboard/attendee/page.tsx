@@ -139,7 +139,7 @@ export default function AttendeeDashboard() {
                   >
                     <div className="space-y-1">
                       <h4 className="font-bold text-base hover:text-emerald-600 dark:hover:text-emerald-400">
-                        <Link href={`/events/${reg.eventId}`}>{reg.eventTitle}</Link>
+                        <Link href={`/events/detail?id=${reg.eventId}`}>{reg.eventTitle}</Link>
                       </h4>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -162,7 +162,7 @@ export default function AttendeeDashboard() {
                         <p className="text-xs text-muted-foreground">{reg.ticketCount} {reg.ticketCount === 1 ? "seat" : "seats"}</p>
                         <p className="text-sm font-bold">{reg.pricePaid === 0 ? "FREE" : `₹${reg.pricePaid}`}</p>
                       </div>
-                      <Link href={`/events/${reg.eventId}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-xs text-emerald-600 dark:text-emerald-400 gap-1")}>
+                      <Link href={`/events/detail?id=${reg.eventId}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-xs text-emerald-600 dark:text-emerald-400 gap-1")}>
                         View Event <ArrowUpRight className="h-3.5 w-3.5" />
                       </Link>
                     </div>

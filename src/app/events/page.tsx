@@ -227,7 +227,7 @@ export default function EventsPage() {
                   <span className="text-xs text-muted-foreground">
                     {event.availableTickets} / {event.capacity} left
                   </span>
-                  <Link href={`/events/${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 font-bold hover:bg-emerald-500/10 gap-1")}>
+                  <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 font-bold hover:bg-emerald-500/10 gap-1")}>
                     View Details &rarr;
                   </Link>
                 </CardFooter>

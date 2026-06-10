@@ -132,7 +132,7 @@ export default function Home() {
                         <MapPin className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
                         <span className="truncate">{event.location}</span>
                       </div>
-                      <Link href={`/events/${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "w-full mt-2 font-bold hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-600/30")}>
+                      <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "w-full mt-2 font-bold hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-600/30")}>
                         Reserve a Spot
                       </Link>
                     </div>
