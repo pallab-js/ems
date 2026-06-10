@@ -3,15 +3,15 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar as CalendarIcon, Plus, Users, Landmark, FileText, MapPin } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Users, Landmark, FileText, MapPin, Trash2 } from "lucide-react";
 
 interface OrganizerEvent {
   id: string;
@@ -121,6 +121,18 @@ export default function OrganizerDashboard() {
   const totalEvents = events.length;
   const totalTicketsSold = registrations.reduce((sum, r) => sum + r.ticketCount, 0);
   const totalRevenue = registrations.reduce((sum, r) => sum + r.pricePaid, 0);
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this event listing?")) return;
+
+    try {
+      await deleteDoc(doc(db, "events", eventId));
+      setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    } catch (err: any) {
+      console.error("Error deleting event:", err);
+      alert("Failed to delete event: " + err.message);
+    }
+  };
 
   if (authLoading || loading) {
     return (
@@ -234,10 +246,19 @@ export default function OrganizerDashboard() {
                             <TableCell className="text-xs">
                               {event.capacity - event.availableTickets} / {event.capacity}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right flex items-center justify-end gap-2">
                               <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}>
                                 View Page
                               </Link>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                                onClick={() => handleDeleteEvent(event.id)}
+                                title="Delete Event"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
