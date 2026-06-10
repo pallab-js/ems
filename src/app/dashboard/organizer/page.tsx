@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar as CalendarIcon, Plus, Users, Landmark, FileText, MapPin, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Users, Landmark, FileText, MapPin, Trash2, Ban } from "lucide-react";
 
 interface OrganizerEvent {
   id: string;
@@ -22,6 +22,7 @@ interface OrganizerEvent {
   capacity: number;
   availableTickets: number;
   category: string;
+  status: "published" | "draft" | "cancelled";
 }
 
 interface OrganizerRegistration {
@@ -79,6 +80,7 @@ export default function OrganizerDashboard() {
             capacity: data.capacity,
             availableTickets: data.availableTickets ?? data.capacity,
             category: data.category,
+            status: data.status,
           });
         });
         setEvents(fetchedEvents);
@@ -131,6 +133,22 @@ export default function OrganizerDashboard() {
     } catch (err: any) {
       console.error("Error deleting event:", err);
       alert("Failed to delete event: " + err.message);
+    }
+  };
+
+  const handleCancelEvent = async (eventId: string) => {
+    if (!confirm("Are you sure you want to cancel this event? Registered attendees will be notified on their dashboards.")) return;
+
+    try {
+      const { doc, updateDoc } = await import("firebase/firestore");
+      await updateDoc(doc(db, "events", eventId), { status: "cancelled" });
+      setEvents((prev) =>
+        prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
+      );
+      alert("Event has been successfully cancelled.");
+    } catch (err: any) {
+      console.error("Error cancelling event:", err);
+      alert("Failed to cancel event: " + err.message);
     }
   };
 
@@ -234,7 +252,14 @@ export default function OrganizerDashboard() {
                         const dateObj = new Date(event.date);
                         return (
                           <TableRow key={event.id}>
-                            <TableCell className="font-bold">{event.title}</TableCell>
+                            <TableCell className="font-bold">
+                              <span className="block truncate">{event.title}</span>
+                              {event.status === "cancelled" && (
+                                <span className="inline-flex items-center rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive mt-1">
+                                  Cancelled
+                                </span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-xs">{dateObj.toLocaleDateString("en-IN")}</TableCell>
                             <TableCell className="text-xs max-w-xs truncate">
                               <span className="flex items-center gap-1">
@@ -250,6 +275,17 @@ export default function OrganizerDashboard() {
                               <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}>
                                 View Page
                               </Link>
+                              {event.status !== "cancelled" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="text-amber-600 hover:bg-amber-500/10 h-8 w-8"
+                                  onClick={() => handleCancelEvent(event.id)}
+                                  title="Cancel Event"
+                                >
+                                  <Ban className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button
                                 size="icon"
                                 variant="ghost"

@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar as CalendarIcon, MapPin, Ticket, ArrowUpRight, Search } from "lucide-react";
+import { Calendar as CalendarIcon, MapPin, Ticket, ArrowUpRight, Search, AlertCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface UserRegistration {
@@ -27,6 +27,7 @@ export default function AttendeeDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
   const [registrations, setRegistrations] = useState<UserRegistration[]>([]);
+  const [notifications, setNotifications] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,7 +65,36 @@ export default function AttendeeDashboard() {
             registeredAt: data.registeredAt,
           });
         });
-        setRegistrations(fetched);
+
+        // Verify event existence and cancellation status in parallel
+        const activeRegs: UserRegistration[] = [];
+        const cancelledNotes: string[] = [];
+
+        await Promise.all(
+          fetched.map(async (reg) => {
+            try {
+              const eventSnap = await getDoc(doc(db, "events", reg.eventId));
+              if (!eventSnap.exists()) {
+                // Event was DELETED: disappears from attendee's dashboard
+                return;
+              }
+              const eventData = eventSnap.data();
+              if (eventData.status === "cancelled") {
+                // Event was CANCELLED: add notification and show cancelled status
+                cancelledNotes.push(`The event "${reg.eventTitle}" has been cancelled by the organizer.`);
+                activeRegs.push({ ...reg, status: "cancelled" });
+              } else {
+                activeRegs.push(reg);
+              }
+            } catch (err) {
+              console.error("Error checking event status for booking:", reg.id, err);
+              activeRegs.push(reg);
+            }
+          })
+        );
+
+        setRegistrations(activeRegs);
+        setNotifications(cancelledNotes);
       } catch (error) {
         console.error("Error fetching registrations:", error);
       } finally {
@@ -100,6 +130,26 @@ export default function AttendeeDashboard() {
           <Search className="mr-2 h-4 w-4" /> Find Events
         </Link>
       </div>
+
+      {/* Notifications for cancelled events */}
+      {notifications.length > 0 && (
+        <div className="space-y-2">
+          {notifications.map((note, index) => (
+            <div key={index} className="bg-destructive/10 border border-destructive/20 text-destructive text-xs p-3.5 rounded-xl flex items-center justify-between">
+              <span className="flex items-center gap-2 font-medium">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {note}
+              </span>
+              <button 
+                onClick={() => setNotifications((prev) => prev.filter((_, i) => i !== index))}
+                className="text-destructive hover:bg-destructive/10 p-1 rounded-full cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Card className="border-emerald-500/10">
         <CardHeader className="bg-muted/20 pb-4">
