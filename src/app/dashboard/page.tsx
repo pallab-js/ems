@@ -19,8 +19,8 @@ export default function DashboardRedirectPage() {
   }, [user, profile, loading, router]);
 
   return (
-    <div className="flex-1 flex items-center justify-center py-20">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+    <div className="flex-1 flex items-center justify-center py-20 bg-canvas">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
     </div>
   );
 }

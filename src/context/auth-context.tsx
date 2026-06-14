@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
   signOut as fbSignOut
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 export type UserRole = "admin" | "organizer" | "attendee";
@@ -48,7 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userDocSnap.exists()) {
         setProfile(userDocSnap.data() as UserProfile);
       } else {
-        // Document doesn't exist, create it with default role (elevated to admin if email contains 'admin')
+        // Document doesn't exist, set a local fallback profile without writing to Firestore.
+        // This avoids race conditions during new user registrations.
         let defaultRole: UserRole = "attendee";
         if (fallbackUser.email && fallbackUser.email.toLowerCase().includes("admin")) {
           defaultRole = "admin";
@@ -60,7 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: defaultRole,
           createdAt: new Date(),
         };
-        await setDoc(userDocRef, newProfile);
         setProfile(newProfile);
       }
     } catch (error) {

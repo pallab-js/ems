@@ -37,8 +37,9 @@ service cloud.firestore {
 
     // --- Events Collection ---
     match /events/{eventId} {
-      // Anyone can view published events. Admins/Organizers can view drafts.
+      // Anyone can view published or cancelled events. Admins/Organizers can view drafts.
       allow read: if resource.data.status == 'published' || 
+                  resource.data.status == 'cancelled' ||
                   (isSignedIn() && (resource.data.organizerId == request.auth.uid || isAdmin()));
       
       // Organizers and Admins can create events
@@ -55,7 +56,10 @@ service cloud.firestore {
           request.resource.data.availableTickets < resource.data.availableTickets
         )
       );
-      allow delete: if isSignedIn() && (resource.data.organizerId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (
+        (resource.data.organizerId == request.auth.uid && resource.data.status == 'cancelled') || 
+        isAdmin()
+      );
     }
 
     // --- Registrations Collection ---
@@ -63,6 +67,7 @@ service cloud.firestore {
       // Users can read their own bookings. Organizers can read bookings for their events. Admins can read all.
       allow read: if isSignedIn() && (
         resource.data.attendeeId == request.auth.uid || 
+        resource.data.organizerId == request.auth.uid ||
         get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.organizerId == request.auth.uid ||
         isAdmin()
       );
@@ -75,11 +80,16 @@ service cloud.firestore {
       // Users can cancel their own bookings, Organizers can manage bookings of their events, Admins can do anything
       allow update: if isSignedIn() && (
         resource.data.attendeeId == request.auth.uid ||
+        resource.data.organizerId == request.auth.uid ||
         get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.organizerId == request.auth.uid ||
         isAdmin()
       );
       
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn() && (
+        resource.data.organizerId == request.auth.uid ||
+        get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.organizerId == request.auth.uid ||
+        isAdmin()
+      );
     }
   }
 }

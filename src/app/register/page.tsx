@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 export default function RegisterPage() {
   const { user, profile, loading, refreshProfile } = useAuth();
@@ -80,21 +80,29 @@ export default function RegisterPage() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      <div className="flex-1 flex items-center justify-center bg-canvas">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-gradient-to-tr from-emerald-50/20 via-background to-amber-50/10">
-      <Card className="w-full max-w-md shadow-lg border-emerald-500/10">
-        <CardHeader className="space-y-1 text-center">
+    <div className="flex-1 flex items-center justify-center p-4 bg-canvas">
+      <Card className="w-full max-w-md shadow-lg border-hairline bg-surface-card">
+        <CardHeader className="space-y-2 text-center">
           <div className="flex justify-center mb-2">
-            <Calendar className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-center space-x-2">
+              <svg className="h-6 w-6 text-primary animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                <line x1="12" y1="4" x2="12" y2="20" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+              </svg>
+              <span className="font-serif text-xl font-normal tracking-tight text-foreground">
+                Xobha <span className="text-primary font-serif">Events</span>
+              </span>
+            </div>
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">Create Account</CardTitle>
-          <CardDescription>
+          <CardTitle className="font-serif text-2xl font-normal text-ink">Create Account</CardTitle>
+          <CardDescription className="text-muted-foreground text-xs">
             Join Xobha Events as an Attendee or Event Organizer
           </CardDescription>
         </CardHeader>
@@ -107,7 +115,7 @@ export default function RegisterPage() {
               </div>
             )}
             <div className="space-y-1">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name" className="text-ink text-xs font-semibold">Full Name</Label>
               <Input
                 id="name"
                 placeholder="e.g. Priyanuj Borah"
@@ -115,10 +123,11 @@ export default function RegisterPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={submitting}
+                className="border-hairline bg-canvas"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email" className="text-ink text-xs font-semibold">Email address</Label>
               <Input
                 id="email"
                 type="email"
@@ -127,10 +136,11 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
+                className="border-hairline bg-canvas"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Label htmlFor="phone" className="text-ink text-xs font-semibold">Phone Number (Optional)</Label>
               <Input
                 id="phone"
                 type="tel"
@@ -138,26 +148,27 @@ export default function RegisterPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={submitting}
+                className="border-hairline bg-canvas"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="role">I want to join as</Label>
+              <Label htmlFor="role" className="text-ink text-xs font-semibold">I want to join as</Label>
               <Select
                 value={role}
                 onValueChange={(val: any) => setRole(val)}
                 disabled={submitting}
               >
-                <SelectTrigger id="role" className="w-full">
+                <SelectTrigger id="role" className="w-full border-hairline bg-canvas text-ink">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-hairline bg-surface-card text-ink">
                   <SelectItem value="attendee">Attendee (Buy tickets, view local events)</SelectItem>
                   <SelectItem value="organizer">Event Organizer (Publish and host events)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-ink text-xs font-semibold">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -166,16 +177,17 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={submitting}
+                className="border-hairline bg-canvas"
               />
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={submitting}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary-active text-on-primary font-semibold" disabled={submitting}>
               {submitting ? "Creating Account..." : "Register"}
             </Button>
             <div className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/login" className="text-emerald-600 dark:text-emerald-400 hover:underline font-semibold">
+              <Link href="/login" className="text-primary hover:underline font-semibold">
                 Sign In
               </Link>
             </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Calendar, User, LogOut, LayoutDashboard, Menu, X } from "lucide-react";
+import { User, LogOut, LayoutDashboard, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +22,11 @@ export function Navbar() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2">
-          <Calendar className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-emerald-600 via-teal-500 to-amber-500 bg-clip-text text-transparent">
-            Xobha Events
+          <svg className="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2 C 12 8, 8 12, 2 12 C 8 12, 12 16, 12 22 C 12 16, 16 12, 22 12 C 16 12, 12 8, 12 2 Z" />
+          </svg>
+          <span className="font-serif text-xl font-normal tracking-tight text-foreground">
+            Xobha <span className="text-primary font-serif">Events</span>
           </span>
         </Link>
 
@@ -55,7 +57,7 @@ export function Navbar() {
               <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
                 Login
               </Link>
-              <Link href="/register" className={cn(buttonVariants({ size: "sm" }), "bg-emerald-600 hover:bg-emerald-700 text-white")}>
+              <Link href="/register" className={cn(buttonVariants({ size: "sm" }), "bg-primary hover:bg-primary-active text-on-primary")}>
                 Register
               </Link>
             </div>
@@ -106,7 +108,7 @@ export function Navbar() {
               <Link href="/login" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-full justify-center")}>
                 Login
               </Link>
-              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants({ size: "sm" }), "w-full bg-emerald-600 hover:bg-emerald-700 text-white justify-center")}>
+              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className={cn(buttonVariants({ size: "sm" }), "w-full bg-primary hover:bg-primary-active text-on-primary justify-center")}>
                 Register
               </Link>
             </div>

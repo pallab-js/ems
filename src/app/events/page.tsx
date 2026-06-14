@@ -82,10 +82,10 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6">
+    <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6 bg-canvas">
       {/* Banner */}
-      <div className="text-center py-6 md:py-10 bg-gradient-to-r from-emerald-900/10 via-emerald-800/5 to-amber-500/5 rounded-2xl border border-emerald-500/5">
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">
+      <div className="text-center py-6 md:py-10 bg-surface-soft rounded-xl border border-hairline">
+        <h1 className="font-serif text-3xl md:text-5xl font-normal tracking-[-1px] mb-3 text-ink">
           Discover Local Events
         </h1>
         <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
@@ -94,7 +94,7 @@ export default function EventsPage() {
       </div>
 
       {/* Filters bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-card p-4 rounded-xl border border-border">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-surface-card p-4 rounded-xl border border-hairline">
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -142,10 +142,10 @@ export default function EventsPage() {
       {/* Loading state */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="flex-1 text-center py-20 bg-muted/20 rounded-2xl border border-dashed">
+        <div className="flex-1 text-center py-20 bg-surface-soft rounded-xl border border-dashed border-hairline">
           <h3 className="text-xl font-bold mb-2">No Events Found</h3>
           <p className="text-muted-foreground mb-4">Try refining your search terms or filters.</p>
           <Button onClick={resetFilters}>Reset All Filters</Button>
@@ -163,7 +163,7 @@ export default function EventsPage() {
               minute: "2-digit",
             });
             return (
-              <Card key={event.id} className="flex flex-col h-full overflow-hidden hover:shadow-md transition-shadow group border-border/60">
+              <Card key={event.id} className="flex flex-col h-full overflow-hidden hover:shadow-md transition-shadow group border-hairline bg-surface-card">
                 {/* Event Image */}
                 <div className="relative h-48 w-full overflow-hidden bg-muted">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -172,9 +172,9 @@ export default function EventsPage() {
                     alt={event.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">
+                  <div className="absolute top-3 right-3 bg-canvas/90 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-bold shadow-sm text-foreground">
                     {event.price === 0 ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">FREE</span>
+                      <span className="text-primary font-bold">FREE</span>
                     ) : (
                       <span>₹{event.price}</span>
                     )}
@@ -182,14 +182,14 @@ export default function EventsPage() {
                 </div>
 
                 <CardHeader className="p-4 pb-2 space-y-1">
-                  <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">
+                  <div className="flex items-center gap-1 text-xs text-primary font-semibold uppercase tracking-wider">
                     <Tag className="h-3 w-3" />
                     {event.category}
                   </div>
-                  <CardTitle className="text-lg line-clamp-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                  <CardTitle className="text-lg line-clamp-1 group-hover:text-primary transition-colors text-ink font-serif font-normal">
                     {event.title}
                   </CardTitle>
-                  <CardDescription className="line-clamp-2 text-xs">
+                  <CardDescription className="line-clamp-2 text-xs text-muted-foreground">
                     {event.description}
                   </CardDescription>
                 </CardHeader>
@@ -205,11 +205,11 @@ export default function EventsPage() {
                   </div>
                 </CardContent>
 
-                <CardFooter className="p-4 pt-0 border-t border-border/40 bg-muted/10 flex items-center justify-between">
+                <CardFooter className="p-4 pt-0 border-t border-hairline/40 bg-muted/10 flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
                     {event.availableTickets} / {event.capacity} left
                   </span>
-                  <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 font-bold hover:bg-emerald-500/10 gap-1")}>
+                  <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-primary hover:text-primary-active font-bold hover:bg-primary/10 gap-1")}>
                     View Details &rarr;
                   </Link>
                 </CardFooter>

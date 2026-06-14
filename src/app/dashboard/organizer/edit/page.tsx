@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
-import { collection, addDoc } from "firebase/firestore";
+import { useRouter, useSearchParams } from "next/navigation";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { ALL_LOCATIONS, CATEGORIES } from "@/lib/constants";
@@ -15,9 +15,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, AlertCircle, Sparkles } from "lucide-react";
 
-export default function CreateEventPage() {
-  const { user, profile, loading } = useAuth();
+function EditEventContent() {
+  const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id") || "";
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -28,10 +30,72 @@ export default function CreateEventPage() {
   const [capacity, setCapacity] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
+  const [originalEvent, setOriginalEvent] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        router.push("/login");
+      } else if (profile?.role !== "organizer" && profile?.role !== "admin") {
+        router.push(`/dashboard/${profile?.role}`);
+      }
+    }
+  }, [user, profile, authLoading, router]);
+
+  useEffect(() => {
+    const fetchEvent = async () => {
+      if (!id || !user) return;
+      try {
+        const docRef = doc(db, "events", id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Security check: only organizer or admin can edit
+          if (data.organizerId !== user.uid && profile?.role !== "admin") {
+            setError("You do not have permission to edit this event.");
+            setLoadingEvent(false);
+            return;
+          }
+          setOriginalEvent({ id: docSnap.id, ...data });
+          setTitle(data.title);
+          setDescription(data.description);
+          
+          // Format date for datetime-local input (YYYY-MM-DDTHH:MM)
+          let dateStr = "";
+          if (data.date) {
+            const dateObj = new Date(data.date);
+            // offset timezone to match local timezone input
+            const tzOffset = dateObj.getTimezoneOffset() * 60000;
+            const localISOTime = new Date(dateObj.getTime() - tzOffset).toISOString().slice(0, 16);
+            dateStr = localISOTime;
+          }
+          setDate(dateStr);
+          setLocation(data.location);
+          setDistrict(data.district);
+          setCategory(data.category);
+          setCapacity(String(data.capacity));
+          setPrice(String(data.price));
+          setImage(data.image || "");
+        } else {
+          setError("Event not found.");
+        }
+      } catch (err: any) {
+        console.error("Error loading event:", err);
+        setError("Failed to load event details: " + err.message);
+      } finally {
+        setLoadingEvent(false);
+      }
+    };
+
+    if (user && id) {
+      fetchEvent();
+    }
+  }, [id, user, profile]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,29 +116,36 @@ export default function CreateEventPage() {
     }
   };
 
-  useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.push("/login");
-      } else if (profile?.role !== "organizer" && profile?.role !== "admin") {
-        router.push(`/dashboard/${profile?.role}`);
-      }
-    }
-  }, [user, profile, loading, router]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
-    if (!user || !profile) {
-      setError("You must be logged in to create an event.");
+    if (!user || !profile || !originalEvent) {
+      setError("Authorization error. Please try again.");
       setSubmitting(false);
       return;
     }
 
     if (!district || !category) {
       setError("Please select both a District and a Category.");
+      setSubmitting(false);
+      return;
+    }
+
+    const inputCapacity = Number(capacity);
+    const inputPrice = Number(price);
+
+    if (inputCapacity <= 0) {
+      setError("Capacity must be a positive number.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Capacity validation: capacity cannot be less than tickets already sold
+    const soldTickets = originalEvent.capacity - (originalEvent.availableTickets ?? originalEvent.capacity);
+    if (inputCapacity < soldTickets) {
+      setError(`Capacity cannot be reduced below the number of registered tickets sold: ${soldTickets} seat(s) booked.`);
       setSubmitting(false);
       return;
     }
@@ -89,9 +160,11 @@ export default function CreateEventPage() {
     };
 
     const eventImageUrl = image || defaultImages[category] || "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=800&auto=format&fit=crop";
+    const newAvailableTickets = inputCapacity - soldTickets;
 
     try {
-      const eventData = {
+      const eventRef = doc(db, "events", id);
+      const updatedData = {
         title,
         description,
         date: new Date(date).toISOString(),
@@ -99,28 +172,37 @@ export default function CreateEventPage() {
         district,
         category,
         image: eventImageUrl,
-        organizerId: user.uid,
-        organizerName: profile.displayName || user.email,
-        capacity: Number(capacity),
-        availableTickets: Number(capacity),
-        price: Number(price),
-        status: "published",
-        createdAt: new Date(),
+        capacity: inputCapacity,
+        availableTickets: newAvailableTickets,
+        price: inputPrice,
       };
 
-      await addDoc(collection(db, "events"), eventData);
+      await updateDoc(eventRef, updatedData);
       router.push("/dashboard/organizer");
     } catch (err: any) {
-      console.error("Error creating event:", err);
-      setError(err.message || "Failed to create event.");
+      console.error("Error updating event:", err);
+      setError(err.message || "Failed to update event.");
       setSubmitting(false);
     }
   };
 
-  if (loading) {
+  if (authLoading || loadingEvent) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-canvas">
+      <div className="flex-grow flex items-center justify-center py-20 bg-canvas">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error && !originalEvent) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-2xl bg-canvas text-center space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+        <h2 className="font-serif text-2xl text-ink">Error</h2>
+        <p className="text-muted-foreground">{error}</p>
+        <Link href="/dashboard/organizer" className="text-primary font-semibold hover:underline">
+          Return to Dashboard
+        </Link>
       </div>
     );
   }
@@ -135,10 +217,10 @@ export default function CreateEventPage() {
         <CardHeader className="space-y-1 border-b border-hairline pb-4">
           <CardTitle className="font-serif text-2xl font-normal text-ink flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Create New Event
+            Edit Event Listings
           </CardTitle>
           <CardDescription className="text-muted-foreground text-xs">
-            Publish cultural and business gatherings in Assam & Northeast India
+            Modify details for &ldquo;{originalEvent?.title}&rdquo;
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -154,7 +236,6 @@ export default function CreateEventPage() {
               <Label htmlFor="title" className="text-ink text-xs font-semibold">Event Title</Label>
               <Input
                 id="title"
-                placeholder="e.g. Guwahati Rongali Bihu Exhibition"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -168,7 +249,6 @@ export default function CreateEventPage() {
               <textarea
                 id="description"
                 rows={4}
-                placeholder="Details about the event, scheduled performances, stall details, etc."
                 className="flex w-full rounded-md border border-hairline bg-canvas px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-ink"
                 required
                 value={description}
@@ -211,7 +291,6 @@ export default function CreateEventPage() {
                 <Label htmlFor="location" className="text-ink text-xs font-semibold">Specific Venue / Address</Label>
                 <Input
                   id="location"
-                  placeholder="e.g. Latasil Playground, Uzan Bazar"
                   required
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -241,7 +320,6 @@ export default function CreateEventPage() {
                 <Input
                   id="capacity"
                   type="number"
-                  placeholder="e.g. 500"
                   min="1"
                   required
                   value={capacity}
@@ -256,7 +334,6 @@ export default function CreateEventPage() {
                 <Input
                   id="price"
                   type="number"
-                  placeholder="e.g. 250"
                   min="0"
                   required
                   value={price}
@@ -290,9 +367,6 @@ export default function CreateEventPage() {
               {uploading && (
                 <p className="text-xs text-primary animate-pulse">Uploading cover image to Firebase Storage...</p>
               )}
-              {!image && (
-                <p className="text-[10px] text-muted-foreground">Upload a banner or leave empty to use a high-quality category default.</p>
-              )}
             </div>
           </CardContent>
           <CardFooter className="flex justify-end gap-3 border-t border-hairline pt-4">
@@ -300,11 +374,23 @@ export default function CreateEventPage() {
               Cancel
             </Button>
             <Button type="submit" className="bg-primary hover:bg-primary-active text-on-primary" disabled={submitting}>
-              {submitting ? "Publishing..." : "Publish Event"}
+              {submitting ? "Updating..." : "Save Changes"}
             </Button>
           </CardFooter>
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function EditEventPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex-1 flex items-center justify-center bg-canvas">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    }>
+      <EditEventContent />
+    </Suspense>
   );
 }

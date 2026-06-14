@@ -127,16 +127,16 @@ export default function AdminDashboard() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex-grow flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      <div className="flex-grow flex items-center justify-center bg-canvas">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6 max-w-5xl">
+    <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6 max-w-5xl bg-canvas">
       <div>
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Admin Console</h1>
+        <h1 className="font-serif text-2xl md:text-3xl font-normal text-ink tracking-tight">Admin Console</h1>
         <p className="text-muted-foreground text-sm">
           Welcome, {profile?.displayName}! System control panel to manage users, event listings, and roles.
         </p>
@@ -144,72 +144,72 @@ export default function AdminDashboard() {
 
       {/* Admin stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-emerald-500/10">
+        <Card className="border-hairline bg-surface-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardDescription className="text-xs font-bold uppercase tracking-wider">Active Users</CardDescription>
-            <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active Users</CardDescription>
+            <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black">{users.length}</div>
+            <div className="text-3xl font-black text-ink">{users.length}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/10">
+        <Card className="border-hairline bg-surface-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardDescription className="text-xs font-bold uppercase tracking-wider">Total Events</CardDescription>
-            <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Events</CardDescription>
+            <Calendar className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black">{events.length}</div>
+            <div className="text-3xl font-black text-ink">{events.length}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/10">
+        <Card className="border-hairline bg-surface-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardDescription className="text-xs font-bold uppercase tracking-wider">Total Bookings</CardDescription>
-            <Ticket className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Bookings</CardDescription>
+            <Ticket className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black">{registrationsCount}</div>
+            <div className="text-3xl font-black text-ink">{registrationsCount}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="users" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="users">Manage User Roles ({users.length})</TabsTrigger>
-          <TabsTrigger value="events">All Event Listings ({events.length})</TabsTrigger>
+        <TabsList className="grid w-full max-w-md grid-cols-2 border border-hairline bg-surface-card rounded-lg p-1">
+          <TabsTrigger value="users" className="data-[state=active]:bg-canvas text-xs py-1.5 rounded-md font-medium">Manage User Roles ({users.length})</TabsTrigger>
+          <TabsTrigger value="events" className="data-[state=active]:bg-canvas text-xs py-1.5 rounded-md font-medium">All Event Listings ({events.length})</TabsTrigger>
         </TabsList>
 
         {/* Users Tab */}
         <TabsContent value="users" className="pt-4">
-          <Card className="border-emerald-500/10">
+          <Card className="border-hairline bg-surface-card">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="font-serif text-lg font-normal text-ink flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
                 Role-Based Access Control
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-muted-foreground text-xs">
                 Revoke or grant Organizer and Admin status to registered accounts.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="border-b border-hairline">
                     <TableRow>
-                      <TableHead>User Name</TableHead>
-                      <TableHead>Email Address</TableHead>
-                      <TableHead>User UID</TableHead>
-                      <TableHead className="w-48 text-right">Assigned Role</TableHead>
+                      <TableHead className="text-ink">User Name</TableHead>
+                      <TableHead className="text-ink">Email Address</TableHead>
+                      <TableHead className="text-ink">User UID</TableHead>
+                      <TableHead className="w-48 text-right text-ink">Assigned Role</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.map((u) => (
-                      <TableRow key={u.uid}>
-                        <TableCell className="font-bold text-xs">{u.displayName}</TableCell>
-                        <TableCell className="text-xs">{u.email}</TableCell>
+                      <TableRow key={u.uid} className="border-b border-hairline/50 hover:bg-muted/5">
+                        <TableCell className="font-bold text-xs text-ink">{u.displayName}</TableCell>
+                        <TableCell className="text-xs text-ink">{u.email}</TableCell>
                         <TableCell className="text-[10px] font-mono text-muted-foreground">{u.uid}</TableCell>
                         <TableCell className="text-right">
                           <Select
@@ -217,10 +217,10 @@ export default function AdminDashboard() {
                             onValueChange={(val) => handleRoleChange(u.uid, val as UserRole)}
                             disabled={updatingRole === u.uid}
                           >
-                            <SelectTrigger className="w-36 ml-auto">
+                            <SelectTrigger className="w-36 ml-auto border-hairline bg-canvas text-ink">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="border-hairline bg-surface-card text-ink">
                               <SelectItem value="attendee">Attendee</SelectItem>
                               <SelectItem value="organizer">Organizer</SelectItem>
                               <SelectItem value="admin">Administrator</SelectItem>
@@ -238,47 +238,47 @@ export default function AdminDashboard() {
 
         {/* Events Tab */}
         <TabsContent value="events" className="pt-4">
-          <Card className="border-emerald-500/10">
+          <Card className="border-hairline bg-surface-card">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="font-serif text-lg font-normal text-ink flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
                 Event Directory
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-muted-foreground text-xs">
                 Overview of all published regional gatherings and exhibitions.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="border-b border-hairline">
                     <TableRow>
-                      <TableHead>Event Title</TableHead>
-                      <TableHead>Host Organizer</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-ink">Event Title</TableHead>
+                      <TableHead className="text-ink">Host Organizer</TableHead>
+                      <TableHead className="text-ink">Location</TableHead>
+                      <TableHead className="text-ink">Price</TableHead>
+                      <TableHead className="text-ink">Status</TableHead>
+                      <TableHead className="text-right text-ink">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {events.map((event) => (
-                      <TableRow key={event.id}>
-                        <TableCell className="font-bold text-xs">
-                          <Link href={`/events/detail?id=${event.id}`} className="hover:text-emerald-600 dark:hover:text-emerald-400">
+                      <TableRow key={event.id} className="border-b border-hairline/50 hover:bg-muted/5">
+                        <TableCell className="font-bold text-xs text-ink">
+                          <Link href={`/events/detail?id=${event.id}`} className="text-ink hover:text-primary transition-colors">
                             {event.title}
                           </Link>
                         </TableCell>
-                        <TableCell className="text-xs">{event.organizerName}</TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="text-xs text-muted-foreground">{event.organizerName}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3 shrink-0" />
                             {event.district}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs">{event.price === 0 ? "Free" : `₹${event.price}`}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{event.price === 0 ? "Free" : `₹${event.price}`}</TableCell>
                         <TableCell className="text-xs capitalize">
-                          <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                             {event.status}
                           </span>
                         </TableCell>

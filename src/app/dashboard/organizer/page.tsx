@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, writeBatch, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -34,6 +34,7 @@ interface OrganizerRegistration {
   ticketCount: number;
   pricePaid: number;
   registeredAt: any;
+  checkInStatus?: "pending" | "checked-in";
 }
 
 export default function OrganizerDashboard() {
@@ -43,6 +44,24 @@ export default function OrganizerDashboard() {
   const [events, setEvents] = useState<OrganizerEvent[]>([]);
   const [registrations, setRegistrations] = useState<OrganizerRegistration[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updatingCheckInId, setUpdatingCheckInId] = useState<string | null>(null);
+
+  const handleToggleCheckIn = async (regId: string, currentStatus?: string) => {
+    setUpdatingCheckInId(regId);
+    const newStatus = currentStatus === "checked-in" ? "pending" : "checked-in";
+    try {
+      const regRef = doc(db, "registrations", regId);
+      await updateDoc(regRef, { checkInStatus: newStatus });
+      setRegistrations((prev) =>
+        prev.map((r) => (r.id === regId ? { ...r, checkInStatus: newStatus } : r))
+      );
+    } catch (err: any) {
+      console.error("Error toggling check-in:", err);
+      alert("Failed to update check-in status: " + err.message);
+    } finally {
+      setUpdatingCheckInId(null);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading) {
@@ -87,25 +106,37 @@ export default function OrganizerDashboard() {
 
         // 2. Fetch registrations for these events
         if (eventIds.length > 0) {
-          const qRegs = collection(db, "registrations");
-          const querySnapshotRegs = await getDocs(qRegs);
           const fetchedRegs: OrganizerRegistration[] = [];
           
-          querySnapshotRegs.forEach((doc) => {
-            const data = doc.data();
-            if (eventIds.includes(data.eventId)) {
-              fetchedRegs.push({
-                id: doc.id,
-                eventId: data.eventId,
-                eventTitle: data.eventTitle,
-                attendeeName: data.attendeeName,
-                attendeeEmail: data.attendeeEmail,
-                ticketCount: data.ticketCount,
-                pricePaid: data.pricePaid,
-                registeredAt: data.registeredAt,
+          // Chunk eventIds into groups of 30 (Firestore limit for 'in' query)
+          const chunks: string[][] = [];
+          for (let i = 0; i < eventIds.length; i += 30) {
+            chunks.push(eventIds.slice(i, i + 30));
+          }
+          
+          await Promise.all(
+            chunks.map(async (chunk) => {
+              const qRegs = query(
+                collection(db, "registrations"),
+                where("eventId", "in", chunk)
+              );
+              const querySnapshotRegs = await getDocs(qRegs);
+              querySnapshotRegs.forEach((doc) => {
+                const data = doc.data();
+                fetchedRegs.push({
+                  id: doc.id,
+                  eventId: data.eventId,
+                  eventTitle: data.eventTitle,
+                  attendeeName: data.attendeeName,
+                  attendeeEmail: data.attendeeEmail,
+                  ticketCount: data.ticketCount,
+                  pricePaid: data.pricePaid,
+                  registeredAt: data.registeredAt,
+                  checkInStatus: data.checkInStatus || "pending",
+                });
               });
-            }
-          });
+            })
+          );
           setRegistrations(fetchedRegs);
         }
       } catch (error) {
@@ -124,12 +155,29 @@ export default function OrganizerDashboard() {
   const totalTicketsSold = registrations.reduce((sum, r) => sum + r.ticketCount, 0);
   const totalRevenue = registrations.reduce((sum, r) => sum + r.pricePaid, 0);
 
-  const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm("Are you sure you want to permanently delete this event listing?")) return;
+  const handleDeleteEvent = async (event: OrganizerEvent) => {
+    if (event.status !== "cancelled") {
+      alert("You can only delete an event after it has been cancelled.");
+      return;
+    }
+    if (!confirm("Are you sure you want to permanently delete this event listing? Registered bookings will also be removed from attendee dashboards.")) return;
 
     try {
-      await deleteDoc(doc(db, "events", eventId));
-      setEvents((prev) => prev.filter((e) => e.id !== eventId));
+      // 1. Fetch and delete all registrations for this event
+      const qRegs = query(collection(db, "registrations"), where("eventId", "==", event.id));
+      const querySnapshotRegs = await getDocs(qRegs);
+      
+      const batch = writeBatch(db);
+      querySnapshotRegs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+      
+      // 2. Delete the event itself
+      batch.delete(doc(db, "events", event.id));
+      
+      await batch.commit();
+
+      setEvents((prev) => prev.filter((e) => e.id !== event.id));
     } catch (err: any) {
       console.error("Error deleting event:", err);
       alert("Failed to delete event: " + err.message);
@@ -140,8 +188,22 @@ export default function OrganizerDashboard() {
     if (!confirm("Are you sure you want to cancel this event? Registered attendees will be notified on their dashboards.")) return;
 
     try {
-      const { doc, updateDoc } = await import("firebase/firestore");
-      await updateDoc(doc(db, "events", eventId), { status: "cancelled" });
+      // 1. Fetch all registrations for this event
+      const qRegs = query(collection(db, "registrations"), where("eventId", "==", eventId));
+      const querySnapshotRegs = await getDocs(qRegs);
+      
+      const batch = writeBatch(db);
+      
+      // 2. Update event status
+      batch.update(doc(db, "events", eventId), { status: "cancelled" });
+      
+      // 3. Update registrations status to cancelled
+      querySnapshotRegs.forEach((docSnap) => {
+        batch.update(docSnap.ref, { status: "cancelled" });
+      });
+      
+      await batch.commit();
+
       setEvents((prev) =>
         prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
       );
@@ -154,75 +216,75 @@ export default function OrganizerDashboard() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      <div className="flex-1 flex items-center justify-center bg-canvas">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6 max-w-5xl">
+    <div className="container mx-auto px-4 py-8 flex-1 flex flex-col gap-6 max-w-5xl bg-canvas">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Organizer Dashboard</h1>
+          <h1 className="font-serif text-2xl md:text-3xl font-normal text-ink tracking-tight">Organizer Dashboard</h1>
           <p className="text-muted-foreground text-sm">
             Welcome, {profile?.displayName}! Manage your events and track bookings in real time.
           </p>
         </div>
-        <Link href="/dashboard/organizer/create" className={cn(buttonVariants(), "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold")}>
+        <Link href="/dashboard/organizer/create" className={cn(buttonVariants(), "bg-primary hover:bg-primary-active text-on-primary font-semibold")}>
           <Plus className="mr-2 h-4 w-4" /> Create Event
         </Link>
       </div>
 
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-emerald-500/10">
+        <Card className="border-hairline bg-surface-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardDescription className="text-xs font-bold uppercase tracking-wider">Total Hosted Events</CardDescription>
-            <CalendarIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Hosted Events</CardDescription>
+            <CalendarIcon className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black">{totalEvents}</div>
+            <div className="text-3xl font-black text-ink">{totalEvents}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/10">
+        <Card className="border-hairline bg-surface-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardDescription className="text-xs font-bold uppercase tracking-wider">Tickets Registered</CardDescription>
-            <Users className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tickets Registered</CardDescription>
+            <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black">{totalTicketsSold}</div>
+            <div className="text-3xl font-black text-ink">{totalTicketsSold}</div>
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/10">
+        <Card className="border-hairline bg-surface-card shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardDescription className="text-xs font-bold uppercase tracking-wider">Gross Revenue</CardDescription>
-            <Landmark className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <CardDescription className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Gross Revenue</CardDescription>
+            <Landmark className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">₹{totalRevenue}</div>
+            <div className="text-3xl font-black text-primary">₹{totalRevenue}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Detailed list and tabs */}
       <Tabs defaultValue="events" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="events">Your Events ({events.length})</TabsTrigger>
-          <TabsTrigger value="registrations">Attendee Bookings ({registrations.length})</TabsTrigger>
+        <TabsList className="grid w-full max-w-md grid-cols-2 border border-hairline bg-surface-card rounded-lg p-1">
+          <TabsTrigger value="events" className="data-[state=active]:bg-canvas text-xs py-1.5 rounded-md font-medium">Your Events ({events.length})</TabsTrigger>
+          <TabsTrigger value="registrations" className="data-[state=active]:bg-canvas text-xs py-1.5 rounded-md font-medium">Attendee Bookings ({registrations.length})</TabsTrigger>
         </TabsList>
 
         {/* Events Tab */}
         <TabsContent value="events" className="pt-4">
-          <Card className="border-emerald-500/10">
+          <Card className="border-hairline bg-surface-card">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="font-serif text-lg font-normal text-ink flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
                 Published Events
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-muted-foreground text-xs">
                 Events currently visible to attendees looking for regional gatherings
               </CardDescription>
             </CardHeader>
@@ -230,29 +292,29 @@ export default function OrganizerDashboard() {
               {events.length === 0 ? (
                 <div className="text-center py-10">
                   <p className="text-muted-foreground text-sm mb-4">You haven&apos;t created any events yet.</p>
-                  <Link href="/dashboard/organizer/create" className={cn(buttonVariants())}>
+                  <Link href="/dashboard/organizer/create" className={cn(buttonVariants(), "bg-primary hover:bg-primary-active text-on-primary")}>
                     Create your first event
                   </Link>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="border-b border-hairline">
                       <TableRow>
-                        <TableHead>Event Title</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Tickets Sold</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
+                        <TableHead className="text-ink">Event Title</TableHead>
+                        <TableHead className="text-ink">Date</TableHead>
+                        <TableHead className="text-ink">Location</TableHead>
+                        <TableHead className="text-ink">Price</TableHead>
+                        <TableHead className="text-ink">Tickets Sold</TableHead>
+                        <TableHead className="text-right text-ink">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {events.map((event) => {
                         const dateObj = new Date(event.date);
                         return (
-                          <TableRow key={event.id}>
-                            <TableCell className="font-bold">
+                          <TableRow key={event.id} className="border-b border-hairline/50 hover:bg-muted/5">
+                            <TableCell className="font-bold text-ink">
                               <span className="block truncate">{event.title}</span>
                               {event.status === "cancelled" && (
                                 <span className="inline-flex items-center rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive mt-1">
@@ -260,41 +322,48 @@ export default function OrganizerDashboard() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs">{dateObj.toLocaleDateString("en-IN")}</TableCell>
-                            <TableCell className="text-xs max-w-xs truncate">
+                            <TableCell className="text-xs text-muted-foreground">{dateObj.toLocaleDateString("en-IN")}</TableCell>
+                            <TableCell className="text-xs max-w-xs truncate text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                 {event.location}
                               </span>
                             </TableCell>
-                            <TableCell className="text-xs">{event.price === 0 ? "Free" : `₹${event.price}`}</TableCell>
-                            <TableCell className="text-xs">
+                            <TableCell className="text-xs text-muted-foreground">{event.price === 0 ? "Free" : `₹${event.price}`}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
                               {event.capacity - event.availableTickets} / {event.capacity}
                             </TableCell>
                             <TableCell className="text-right flex items-center justify-end gap-2">
-                              <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}>
+                              <Link href={`/events/detail?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "ghost" }), "text-primary hover:bg-primary/10")}>
                                 View Page
                               </Link>
+                              {event.status !== "cancelled" && (
+                                <Link href={`/dashboard/organizer/edit?id=${event.id}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }), "border-hairline hover:bg-canvas")}>
+                                  Edit
+                                </Link>
+                              )}
                               {event.status !== "cancelled" && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="text-amber-600 hover:bg-amber-500/10 h-8 w-8"
+                                  className="text-accent-amber hover:bg-accent-amber/10 h-8 w-8"
                                   onClick={() => handleCancelEvent(event.id)}
                                   title="Cancel Event"
                                 >
                                   <Ban className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="text-destructive hover:bg-destructive/10 h-8 w-8"
-                                onClick={() => handleDeleteEvent(event.id)}
-                                title="Delete Event"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              {event.status === "cancelled" && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="text-destructive hover:bg-destructive/10 h-8 w-8"
+                                  onClick={() => handleDeleteEvent(event)}
+                                  title="Delete Event"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         );
@@ -309,13 +378,13 @@ export default function OrganizerDashboard() {
 
         {/* Registrations Tab */}
         <TabsContent value="registrations" className="pt-4">
-          <Card className="border-emerald-500/10">
+          <Card className="border-hairline bg-surface-card">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="font-serif text-lg font-normal text-ink flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
                 Registrations & Guest List
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-muted-foreground text-xs">
                 Audience booking check-ins and payments for your events
               </CardDescription>
             </CardHeader>
@@ -327,23 +396,55 @@ export default function OrganizerDashboard() {
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="border-b border-hairline">
                       <TableRow>
-                        <TableHead>Event</TableHead>
-                        <TableHead>Guest Name</TableHead>
-                        <TableHead>Guest Email</TableHead>
-                        <TableHead>Seats</TableHead>
-                        <TableHead>Revenue</TableHead>
+                        <TableHead className="text-ink">Event</TableHead>
+                        <TableHead className="text-ink">Guest Name</TableHead>
+                        <TableHead className="text-ink">Guest Email</TableHead>
+                        <TableHead className="text-ink">Seats</TableHead>
+                        <TableHead className="text-ink">Revenue</TableHead>
+                        <TableHead className="text-ink">Status</TableHead>
+                        <TableHead className="text-right text-ink">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {registrations.map((reg) => (
-                        <TableRow key={reg.id}>
-                          <TableCell className="font-semibold text-xs">{reg.eventTitle}</TableCell>
-                          <TableCell className="text-xs">{reg.attendeeName}</TableCell>
+                        <TableRow key={reg.id} className="border-b border-hairline/50 hover:bg-muted/5">
+                          <TableCell className="font-semibold text-xs text-ink">{reg.eventTitle}</TableCell>
+                          <TableCell className="text-xs text-ink">{reg.attendeeName}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{reg.attendeeEmail}</TableCell>
-                          <TableCell className="text-xs">{reg.ticketCount}</TableCell>
-                          <TableCell className="text-xs font-bold">{reg.pricePaid === 0 ? "Free" : `₹${reg.pricePaid}`}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{reg.ticketCount}</TableCell>
+                          <TableCell className="text-xs font-bold text-ink">{reg.pricePaid === 0 ? "Free" : `₹${reg.pricePaid}`}</TableCell>
+                          <TableCell className="text-xs">
+                            <span className={cn(
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                              reg.checkInStatus === "checked-in"
+                                ? "bg-success/10 text-success"
+                                : "bg-muted text-muted-foreground"
+                            )}>
+                              {reg.checkInStatus === "checked-in" ? "Checked In" : "Pending"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] font-semibold border-hairline h-6 px-2",
+                                reg.checkInStatus === "checked-in"
+                                  ? "hover:bg-destructive/5 hover:text-destructive text-muted-foreground"
+                                  : "hover:bg-success/5 hover:text-success text-primary"
+                              )}
+                              disabled={updatingCheckInId === reg.id}
+                              onClick={() => handleToggleCheckIn(reg.id, reg.checkInStatus)}
+                            >
+                              {updatingCheckInId === reg.id
+                                ? "..."
+                                : reg.checkInStatus === "checked-in"
+                                ? "Check Out"
+                                : "Check In"}
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
